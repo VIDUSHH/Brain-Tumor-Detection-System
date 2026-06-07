@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: brain-tumor-detection-system
+    runtime: docker
+    plan: starter # Starter plan has sufficient RAM for running TensorFlow models
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false # User will set this in the Render dashboard
+        description: "API key for google Gemini to generate clinical summaries."
+      - key: MODEL_TYPE
+        value: "efficientnet_b3"
+        description: "Specify which EfficientNet version to use (efficientnet_b3 or efficientnet_b0)."
+      - key: TF_CPP_MIN_LOG_LEVEL
+        value: "2"

@@ -1,0 +1,40 @@
+# Python caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+# Local Data and Model weight files
+Brain Tumor data/
+models/*.h5
+models/*.pth
+*.pth
+*.h5
+
+# Runtime directories - ignore content but keep folders
+uploads/*
+!uploads/.gitkeep
+results/*
+!results/.gitkeep
+logs/*
+!logs/.gitkeep
+artifacts/*
+!artifacts/.gitkeep
+.pytest_cache/
+.ipynb_checkpoints/
+.coverage
+htmlcov/
+
+# Environments
+.env
+.venv
+venv/
+ENV/
+env/
+
+# IDE and OS files
+.vscode/
+.idea/
+.gemini/
+.DS_Store
+Thumbs.db

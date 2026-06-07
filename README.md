@@ -1,0 +1,196 @@
+# Brain Tumor Detection & Explainable AI System
+
+An advanced, production-grade Deep Learning and Explainable AI (XAI) system for detecting, classifying, and localizing brain tumors from MRI scans using TensorFlow/Keras and FastAPI. 
+
+This system classifies scans into four distinct clinical categories (Glioma, Meningioma, Pituitary, or No Tumor) and provides transparent visual explanations of its decisions using **Grad-CAM** and **Grad-CAM++** localization heatmaps alongside bounding boxes. If configured, it also leverages the **Google Gemini API** to translate clinical findings into warm, patient-friendly summaries.
+
+---
+
+## Features
+
+- **Multi-Class Tumor Classification**: Classifies brain MRI scans into 4 categories: Glioma, Meningioma, Pituitary, or No Tumor.
+- **Switchable Deep Learning Architectures**: Configurable transfer learning backbones supporting `EfficientNet-B3` (default) and `EfficientNet-B0`.
+- **Explainable AI (XAI) Visualizations**: Generates pixel-level heatmap overlays highlighting exactly where the neural network focused using **Grad-CAM** and **Grad-CAM++**.
+- **Bounding Box Localization**: Auto-detects hottest activation areas on the heatmaps and draws bounding boxes/contours around the suspected lesion boundaries.
+- **Generative Patient Explanations**: Fully integrates Google Gemini (via `google-generativeai`) to convert complex clinical probabilities, pathology traits, and risks into empathetic patient-friendly summaries.
+- **Production-Grade API Backend**: Hosted via FastAPI with strict payload size validation (10MB maximum), image verification, CORS enablement, and logging rotation (`logs/app.log`).
+- **One-Click Cloud Deployment**: Pre-configured with a multi-worker production Docker environment ready for deployment on **Render** (via `render.yaml`).
+
+---
+
+## Dataset Structure
+
+Place your brain tumor MRI dataset in the root of the project folder using the following structure:
+
+```
+Brain Tumor data/
+├── Training/
+│   ├── glioma/
+│   ├── meningioma/
+│   ├── notumor/
+│   └── pituitary/
+└── Testing/
+    ├── glioma/
+    ├── meningioma/
+    ├── notumor/
+    └── pituitary/
+```
+
+- **Classes**:
+  - `0 = glioma` (Intra-axial brain tumor)
+  - `1 = meningioma` (Extra-axial meningeal tumor)
+  - `2 = notumor` (Normal brain MRI scan)
+  - `3 = pituitary` (Sellar region pituitary adenoma)
+
+---
+
+## Installation
+
+### 1. Clone the Repository
+```bash
+git clone https://github.com/VIDUSHH/Brain-Tumor-Detection-System.git
+cd Brain-Tumor-Detection-System
+```
+
+### 2. Set Up a Virtual Environment
+```bash
+python -m venv venv
+```
+Activate it:
+- **Windows**: `venv\Scripts\activate`
+- **macOS/Linux**: `source venv/bin/activate`
+
+### 3. Install Dependencies
+```bash
+pip install -r requirements.txt
+```
+
+---
+
+## Training the Model
+
+Execute the training script from the project root. The training pipeline implements random horizontal/vertical flips, rotations, zooming, class weight balancing, early stopping, and automatic model checkpoints. It also enables mixed-precision float16 training if a GPU is detected.
+
+To train with the default **EfficientNet-B3** backbone:
+```bash
+python training/train.py --model_type efficientnet_b3 --epochs_head 10 --epochs_ft 15 --batch_size 32
+```
+
+To train with the lighter **EfficientNet-B0** backbone:
+```bash
+python training/train.py --model_type efficientnet_b0 --epochs_head 10 --epochs_ft 15 --batch_size 32
+```
+
+### Evaluating Performance
+Once training completes, evaluate the saved model (`models/best_model.h5`) on the testing set to print classification tables and save Confusion Matrix and ROC curves under `artifacts/evaluation/`:
+```bash
+python training/evaluate.py
+```
+
+---
+
+## Run Locally
+
+Start the FastAPI application locally:
+```bash
+uvicorn app.main:app --reload
+```
+
+- **Local Address**: `http://127.0.0.1:8000`
+- **Interactive Documentation**: `http://127.0.0.1:8000/docs` (Swagger UI) or `http://127.0.0.1:8000/redoc` (ReDoc)
+
+---
+
+## Example API Response
+
+### `POST /predict`
+Submit an MRI image to the `/predict` endpoint (e.g. as `multipart/form-data`).
+
+#### Request Header (Optional for AI Patient Summaries)
+- `X-Gemini-API-Key`: `your_gemini_api_key_here` (or define `GEMINI_API_KEY` in environment)
+
+#### Response JSON
+```json
+{
+  "prediction": "Glioma",
+  "confidence": 98.45,
+  "all_scores": {
+    "glioma": 98.45,
+    "meningioma": 0.82,
+    "notumor": 0.12,
+    "pituitary": 0.61
+  },
+  "explanation": "The model detected abnormal high-intensity tissue patterns in the brain parenchyma. Grad-CAM/Grad-CAM++ highlighted concentrated activation around the suspected lesion area. The detected morphology resembles common Glioma characteristics including irregular margins and infiltrative growth patterns.",
+  "risk_level": "High to Critical",
+  "recommendation": "Urgent consultation with a neurologist or neurosurgeon for MRI review. Schedule a contrast-enhanced brain MRI (with spectroscopy or perfusion if recommended by the specialist). Consult a neuro-oncologist to review options for surgical biopsy/resection, radiation, and chemotherapy.",
+  "medical_disclaimer": "This prediction is generated by an AI model and should not be considered a medical diagnosis. Consult a neurologist or neurosurgeon for professional MRI review.",
+  "tumor_characteristics": [
+    "Originates from glial cells (astrocytes, oligodendrocytes, ependymal cells)",
+    "Grows intra-axially (inside the brain tissue) with infiltrative, irregular margins",
+    "Can range from low-grade (slow-growing) to high-grade (highly aggressive, e.g., Glioblastoma)"
+  ],
+  "potential_symptoms": [
+    "Headaches (especially worse in the morning)",
+    "Seizures",
+    "Vision problems or double vision",
+    "Memory loss, confusion, or personality changes"
+  ],
+  "bbox_coordinates": {
+    "x_min": 78,
+    "y_min": 52,
+    "x_max": 154,
+    "y_max": 128
+  },
+  "latency_ms": 345.12,
+  "urls": {
+    "original_url": "http://127.0.0.1:8000/static/results/original_827f8a.jpg",
+    "heatmap_gradcam_url": "http://127.0.0.1:8000/static/results/heatmap_gradcam_827f8a.jpg",
+    "overlay_gradcam_url": "http://127.0.0.1:8000/static/results/overlay_gradcam_827f8a.jpg",
+    "heatmap_gradcampp_url": "http://127.0.0.1:8000/static/results/heatmap_gradcampp_827f8a.jpg",
+    "overlay_gradcampp_url": "http://127.0.0.1:8000/static/results/overlay_gradcampp_827f8a.jpg",
+    "localized_url": "http://127.0.0.1:8000/static/results/localization_827f8a.jpg"
+  },
+  "heatmap_url": "http://127.0.0.1:8000/static/results/heatmap_gradcam_827f8a.jpg",
+  "overlay_url": "http://127.0.0.1:8000/static/results/overlay_gradcam_827f8a.jpg",
+  "localized_url": "http://127.0.0.1:8000/static/results/localization_827f8a.jpg",
+  "generative_explanation": "*Empathy-driven Gemini breakdown of the findings...*"
+}
+```
+
+---
+
+## Grad-CAM Visualizations & Localization
+
+The system outputs multiple files in the `results/` folder for every prediction:
+1. **Heatmap** (`heatmap_gradcam[pp]_<id>.jpg`): A JET-colormapped image visualizing the pixel-level importance. Red areas indicate regions that strongly influenced the model to output the prediction, while blue regions indicate negligible influence.
+2. **Overlay** (`overlay_gradcam[pp]_<id>.jpg`): Blends the JET heatmap (40% weight) with the grayscale original MRI scan (60% weight). This allows radiologists to map model activations back to precise brain anatomical structures (e.g. ventricles, frontal lobes, pituitary fossa).
+3. **Localization** (`localization_<id>.jpg`): Applies a binary threshold at 40% of the maximum activation intensity. Contours are computed around the segmented areas and superimposed as a **red outline**, with a **yellow bounding box** showing coordinates of the suspect tumor.
+
+### Grad-CAM vs. Grad-CAM++
+- **Grad-CAM**: Uses first-order gradients. It is excellent for identifying general regions of interest, but can sometimes result in broad, fuzzy activations.
+- **Grad-CAM++**: Integrates positive second- and third-order gradients. This results in sharper, more focused localization maps, especially for scans containing multiple lesions or tiny tumors.
+
+---
+
+## Render Deployment
+
+This project contains a `render.yaml` specification that allows you to easily spin up a Dockerized FastAPI service on Render.
+
+### Steps to Deploy
+1. Push this repository to your GitHub account.
+2. Log in to your **[Render Dashboard](https://dashboard.render.com/)**.
+3. Click **New +** and select **Blueprint**.
+4. Connect your GitHub repository.
+5. Render will automatically parse the `render.yaml` file and configure a Web Service:
+   - **Environment**: Docker
+   - **Plan**: Starter (recommended to support TensorFlow memory overhead)
+6. Add your environment variables in the Render console:
+   - `GEMINI_API_KEY`: *(Optional)* Your Google Gemini API key to enable generative summaries.
+   - `MODEL_TYPE`: `efficientnet_b3` *(Default)* or `efficientnet_b0`.
+7. Click **Approve** to build and launch your container.
+
+---
+
+## Disclaimer
+
+> **IMPORTANT CLINICAL DISCLAIMER**: This application is for **educational, demonstration, and research purposes only**. The predictions, heatmap localizations, and explanations generated by this model are not medical diagnoses, should not be treated as professional medical advice, and should never be used as a substitute for clinical evaluations. All medical images and findings must be reviewed and verified by a licensed Radiologist, Neurologist, or Neurosurgical specialist.
