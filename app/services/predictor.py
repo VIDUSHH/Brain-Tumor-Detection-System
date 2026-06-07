@@ -62,8 +62,21 @@ class Predictor:
         """Loads model weights from the configured path."""
         path = settings.MODEL_PATH
         if not os.path.exists(path):
-            logger.warning(f"Model file not found at: {path}. Predictions will fail until model is trained.")
-            return
+            download_url = os.environ.get("MODEL_DOWNLOAD_URL")
+            if download_url:
+                logger.info(f"Model file not found at {path}. Attempting to download from MODEL_DOWNLOAD_URL...")
+                try:
+                    import urllib.request
+                    os.makedirs(os.path.dirname(path), exist_ok=True)
+                    # Download the file
+                    urllib.request.urlretrieve(download_url, path)
+                    logger.info(f"Model downloaded successfully to {path}")
+                except Exception as e:
+                    logger.error(f"Failed to download model from {download_url}: {str(e)}")
+                    return
+            else:
+                logger.warning(f"Model file not found at: {path}. Predictions will fail until model is trained or MODEL_DOWNLOAD_URL is configured.")
+                return
 
         try:
             # Try to load the full saved model first

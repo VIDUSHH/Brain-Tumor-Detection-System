@@ -24,14 +24,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
+# Copy application code and model weights
 COPY app/ ./app/
+COPY models/ ./models/
 
 # Create necessary directories for local storage (ignored by git, needed at runtime)
-RUN mkdir -p uploads results logs models
+RUN mkdir -p uploads results logs
 
 # Expose port
 EXPOSE 10000
 
-# Command to run FastAPI server under Uvicorn and Gunicorn for production scaling
-CMD gunicorn -w 4 -k uvicorn.workers.UvicornWorker app.main:app --bind 0.0.0.0:$PORT --timeout 120
+# Command to run FastAPI server
+CMD uvicorn app.main:app --host 0.0.0.0 --port $PORT

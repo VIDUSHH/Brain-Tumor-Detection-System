@@ -1,1 +1,1 @@
-# Keep folder in Git
+# Keep this directory in git so Docker build can copy it
