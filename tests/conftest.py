@@ -1,3 +1,6 @@
+# Information: Pytest fixtures and session hooks.
+# Importance: Programmatically creates a dummy Keras model with a 'top_conv' layer if no model exists so that test runs can pass immediately.
+
 import os
 import shutil
 import tempfile
