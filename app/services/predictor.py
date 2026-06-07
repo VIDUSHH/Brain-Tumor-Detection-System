@@ -1,3 +1,6 @@
+# Information: Inference service wrapping the loaded Keras model.
+# Importance: Handles model instantiation, supports EfficientNet-B3/B0 switches, and runs predictions while handling missing model files gracefully.
+
 import os
 import logging
 import numpy as np
