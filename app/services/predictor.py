@@ -61,6 +61,31 @@ class Predictor:
     def load_model(self):
         """Loads model weights from the configured path."""
         path = settings.MODEL_PATH
+        
+        # Reassemble split model parts if the main model file doesn't exist
+        if not os.path.exists(path):
+            part_num = 1
+            parts = []
+            while True:
+                part_path = f"{path}.part{part_num}"
+                if os.path.exists(part_path):
+                    parts.append(part_path)
+                    part_num += 1
+                else:
+                    break
+            
+            if parts:
+                logger.info(f"Main model file not found, but {len(parts)} split parts detected. Reassembling model...")
+                try:
+                    os.makedirs(os.path.dirname(path), exist_ok=True)
+                    with open(path, 'wb') as outfile:
+                        for part in parts:
+                            with open(part, 'rb') as infile:
+                                outfile.write(infile.read())
+                    logger.info("Model reassembled successfully.")
+                except Exception as e:
+                    logger.error(f"Failed to reassemble split model: {str(e)}")
+
         if not os.path.exists(path):
             download_url = os.environ.get("MODEL_DOWNLOAD_URL")
             if download_url:
