@@ -1,3 +1,6 @@
+# Information: API prediction router implementing the POST /predict endpoint.
+# Importance: Coordinates file upload security checks, pre-processing, Grad-CAM overlays, contour bounding box extractions, and explanation mappings.
+
 import os
 import uuid
 import logging
