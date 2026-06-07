@@ -1,3 +1,6 @@
+# Information: Diagnosis explanation service with clinical knowledge and Gemini AI support.
+# Importance: Generates detailed reports detailing symptoms, characteristics, severity, and recommendations, calling Gemini for friendly summaries.
+
 import google.generativeai as genai
 import os
 from typing import Dict, Any, Optional
