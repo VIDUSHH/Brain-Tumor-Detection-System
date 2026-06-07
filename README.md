@@ -1,3 +1,12 @@
+---
+title: Brain Tumor Detection And Explainable AI
+emoji: 🧠
+colorFrom: red
+colorTo: blue
+sdk: docker
+app_port: 7860
+---
+
 # Brain Tumor Detection & Explainable AI System
 
 An advanced, production-grade Deep Learning and Explainable AI (XAI) system for detecting, classifying, and localizing brain tumors from MRI scans using TensorFlow/Keras and FastAPI. 
