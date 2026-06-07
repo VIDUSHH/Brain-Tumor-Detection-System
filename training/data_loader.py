@@ -1,3 +1,6 @@
+# Information: Training data pipeline module.
+# Importance: Configures tf.data.Dataset loaders with performance prefetching and computes class weights to combat dataset imbalances.
+
 import os
 import tensorflow as tf
 from typing import Tuple, Dict, Optional
