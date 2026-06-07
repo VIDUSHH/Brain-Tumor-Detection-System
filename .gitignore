@@ -1,3 +1,6 @@
+# Information: Git repository file exclude list.
+# Importance: Keeps source control clean by preventing uploads, logs, weights, virtual environments, and local IDE configs from tracking.
+
 # Python caches
 __pycache__/
 *.py[cod]
