@@ -1,3 +1,6 @@
+# Information: Image pre-processing and post-processing utility.
+# Importance: Normalizes raw uploads for EfficientNet models and converts OpenCV overlay images back to JPEG formats for static access.
+
 import io
 import os
 import cv2
