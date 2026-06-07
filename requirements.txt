@@ -1,3 +1,6 @@
+# Information: Project python library requirements.
+# Importance: Standardizes Keras, FastAPI, Pydantic, OpenCV, scikit-learn, and google-generativeai package versions across environments.
+
 tensorflow>=2.15.0
 fastapi>=0.110.0
 uvicorn[standard]>=0.28.0
