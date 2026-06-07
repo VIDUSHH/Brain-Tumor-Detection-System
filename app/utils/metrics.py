@@ -1,3 +1,6 @@
+# Information: Diagnostics metrics helper.
+# Importance: Provides high-precision duration trackers (latency calculation) and maps raw float probability arrays to class name dictionaries.
+
 import time
 from typing import Dict
 
