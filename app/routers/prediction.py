@@ -89,25 +89,29 @@ async def predict_mri(
             # Convert numpy array probability breakdown to dictionary
             all_scores = format_probabilities(probabilities, settings.CLASS_MAPPING)
 
-            # 6. Generate Explainable AI (Grad-CAM and Grad-CAM++)
-            # Grad-CAM auto-detects target layer inside the class
-            explainer = GradCAMExplainer(predictor.model)
-            
-            heatmap_gc = explainer.generate_gradcam(preprocessed, pred_class_idx)
-            heatmap_gcpp = explainer.generate_gradcam_plusplus(preprocessed, pred_class_idx)
-
             # Determine whether tumor is detected (class is not 'notumor')
             # 0=glioma, 1=meningioma, 2=notumor, 3=pituitary
             is_tumor = (pred_class_name != "notumor")
 
+            # 6. Generate Explainable AI (Grad-CAM and Grad-CAM++)
+            if is_tumor:
+                # Grad-CAM auto-detects target layer inside the class
+                explainer = GradCAMExplainer(predictor.model)
+                heatmap_gc = explainer.generate_gradcam(preprocessed, pred_class_idx)
+                heatmap_gcpp = explainer.generate_gradcam_plusplus(preprocessed, pred_class_idx)
+            else:
+                # If no tumor is predicted, return empty zero heatmaps to prevent false positives
+                heatmap_gc = np.zeros((preprocessed.shape[1], preprocessed.shape[2]))
+                heatmap_gcpp = np.zeros((preprocessed.shape[1], preprocessed.shape[2]))
+
             # 7. Localize the tumor region and save files
             # For localization, we use the sharper Grad-CAM++ heatmap
             heatmap_col_gc, overlay_gc, _, _ = generate_visualizations(
-                pil_image, heatmap_gc, threshold_ratio=0.4, draw_boxes=False
+                pil_image, heatmap_gc, threshold_ratio=0.45, draw_boxes=False
             )
             
             heatmap_col_gcpp, overlay_gcpp, localized_gcpp, bbox_coords = generate_visualizations(
-                pil_image, heatmap_gcpp, threshold_ratio=0.4, draw_boxes=is_tumor
+                pil_image, heatmap_gcpp, threshold_ratio=0.45, draw_boxes=is_tumor
             )
 
             # Save generated images with unique IDs

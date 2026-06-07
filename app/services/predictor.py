@@ -22,18 +22,19 @@ def build_transfer_model(model_type: str, num_classes: int = 4, input_size: int 
         tf.keras.Model
     """
     input_shape = (input_size, input_size, 3)
+    inputs = tf.keras.layers.Input(shape=input_shape)
     
     if model_type.lower() == "efficientnet_b0":
         base_model = tf.keras.applications.EfficientNetB0(
             include_top=False,
             weights="imagenet",
-            input_shape=input_shape
+            input_tensor=inputs
         )
     elif model_type.lower() == "efficientnet_b3":
         base_model = tf.keras.applications.EfficientNetB3(
             include_top=False,
             weights="imagenet",
-            input_shape=input_shape
+            input_tensor=inputs
         )
     else:
         raise ValueError(f"Unsupported model type: {model_type}. Must be 'efficientnet_b0' or 'efficientnet_b3'.")
@@ -41,12 +42,15 @@ def build_transfer_model(model_type: str, num_classes: int = 4, input_size: int 
     # Freeze the base model layers by default
     base_model.trainable = False
     
-    # Custom classification head
+    # Custom classification head matching the training notebook structure
     x = tf.keras.layers.GlobalAveragePooling2D()(base_model.output)
+    x = tf.keras.layers.BatchNormalization()(x)
     x = tf.keras.layers.Dropout(0.3)(x)
-    outputs = tf.keras.layers.Dense(num_classes, activation="softmax")(x)
+    x = tf.keras.layers.Dense(256, activation="relu")(x)
+    x = tf.keras.layers.Dropout(0.3)(x)
+    outputs = tf.keras.layers.Dense(num_classes, activation="softmax", dtype="float32", name="predictions")(x)
     
-    model = tf.keras.Model(inputs=base_model.input, outputs=outputs, name=f"BrainTumor_{model_type}")
+    model = tf.keras.Model(inputs=inputs, outputs=outputs, name=f"BrainTumorClassifier_{model_type}")
     return model
 
 class Predictor:
@@ -84,5 +88,6 @@ class Predictor:
             if self.model is None:
                 raise RuntimeError("Model is not loaded. Please train the model or provide the weights file.")
         
-        predictions = self.model.predict(preprocessed_image)
-        return predictions[0]  # Return class probabilities (flat array)
+        # Call model directly for faster latency, clean logs, and to bypass Functional API input warnings
+        predictions = self.model(preprocessed_image, training=False)
+        return predictions[0].numpy()  # Return class probabilities (flat array)

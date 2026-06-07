@@ -33,57 +33,80 @@ def generate_visualizations(
     orig_bgr = cv2.cvtColor(orig_np, cv2.COLOR_RGB2BGR)
     height, width, _ = orig_bgr.shape
 
-    # Resize heatmap to match the original image dimensions
-    heatmap_resized = cv2.resize(heatmap_np, (width, height))
+    # 1. Detect empty heatmap (no tumor predicted or all zeros).
+    # Return a solid blue heatmap and clean original scans to prevent false positives.
+    if np.max(heatmap_np) < 1e-10:
+        blank_heatmap = np.zeros_like(orig_bgr)
+        # JET colormap maps zero to dark blue: B=128, G=0, R=0
+        blank_heatmap[:, :] = [128, 0, 0]
+        return blank_heatmap, orig_bgr, orig_bgr, None
+
+    # 2. Resize heatmap using bicubic interpolation for smoother transitions
+    heatmap_resized = cv2.resize(heatmap_np, (width, height), interpolation=cv2.INTER_CUBIC)
+
+    # Apply Gaussian smoothing to round out interpolation grid cells cleanly
+    heatmap_smoothed = cv2.GaussianBlur(heatmap_resized, (11, 11), 0)
+
+    # Normalize again to ensure value range is strictly [0, 1] after interpolation
+    max_val = np.max(heatmap_smoothed)
+    if max_val > 1e-10:
+        heatmap_smoothed = heatmap_smoothed / max_val
 
     # Apply JET colormap
-    heatmap_uint8 = np.uint8(255 * heatmap_resized)
+    heatmap_uint8 = np.uint8(255 * heatmap_smoothed)
     heatmap_colored = cv2.applyColorMap(heatmap_uint8, cv2.COLORMAP_JET)
 
     # Superimpose heatmap onto original image
-    superimposed = cv2.addWeighted(orig_bgr, 0.6, heatmap_colored, 0.4, 0)
-
-    # Create thresholded binary mask
-    _, thresh = cv2.threshold(heatmap_uint8, int(255 * threshold_ratio), 255, cv2.THRESH_BINARY)
-
-    # Find contours in the binary mask
-    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    superimposed = cv2.addWeighted(orig_bgr, 0.65, heatmap_colored, 0.35, 0)
 
     localized = orig_bgr.copy()
     bbox_coords = None
-    max_area = 0
-    best_bbox = None
-    best_contour = None
 
-    # Filter and find the largest contour area above a minimum noise floor (e.g., 100 pixels)
-    for contour in contours:
-        area = cv2.contourArea(contour)
-        if area > 100 and area > max_area:
-            max_area = area
-            x, y, w, h = cv2.boundingRect(contour)
-            best_bbox = {"x_min": x, "y_min": y, "x_max": x + w, "y_max": y + h}
-            best_contour = contour
+    # 3. Only draw bounding box and contours if draw_boxes flag is enabled (tumor predicted)
+    if draw_boxes:
+        # Create thresholded binary mask using smoothed heatmap
+        _, thresh = cv2.threshold(heatmap_uint8, int(255 * threshold_ratio), 255, cv2.THRESH_BINARY)
 
-    # Draw markers if a tumor region is found
-    if best_bbox is not None and draw_boxes:
-        bbox_coords = best_bbox
-        x, y, w, h = best_bbox["x_min"], best_bbox["y_min"], best_bbox["x_max"] - best_bbox["x_min"], best_bbox["y_max"] - best_bbox["y_min"]
-        
-        # Draw all contours that passed threshold (or just the largest)
-        # Let's draw the largest contour for clarity and precision
-        cv2.drawContours(localized, [best_contour], -1, (0, 0, 255), 2)  # Red contour
-        cv2.rectangle(localized, (x, y), (x + w, y + h), (0, 255, 255), 2)  # Yellow box
-        
-        # Put label text
-        cv2.putText(
-            localized,
-            "Tumor Activation",
-            (x, max(y - 10, 15)),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.5,
-            (0, 255, 255),
-            1,
-            cv2.LINE_AA
-        )
+        # Morphological operations using a larger ellipse kernel to clean noise and small artifacts
+        morph_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
+        thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, morph_kernel)
+        thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, morph_kernel)
+
+        # Find contours in the cleaned binary mask
+        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        max_area = 0
+        best_bbox = None
+        best_contour = None
+
+        # Filter contours by size, setting the minimum noise floor to 300 pixels
+        for contour in contours:
+            area = cv2.contourArea(contour)
+            if area > 300 and area > max_area:
+                max_area = area
+                x, y, w, h = cv2.boundingRect(contour)
+                best_bbox = {"x_min": x, "y_min": y, "x_max": x + w, "y_max": y + h}
+                best_contour = contour
+
+        # Draw outlines and rectangle if a valid tumor region is segmented
+        if best_bbox is not None:
+            bbox_coords = best_bbox
+            x, y, w, h = best_bbox["x_min"], best_bbox["y_min"], best_bbox["x_max"] - best_bbox["x_min"], best_bbox["y_max"] - best_bbox["y_min"]
+            
+            # Draw contour (Red) and bounding box (Yellow)
+            cv2.drawContours(localized, [best_contour], -1, (0, 0, 255), 2)
+            cv2.rectangle(localized, (x, y), (x + w, y + h), (0, 255, 255), 2)
+            
+            # Label overlay
+            cv2.putText(
+                localized,
+                "Suspected Tumor Region",
+                (x, max(y - 10, 15)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.5,
+                (0, 255, 255),
+                1,
+                cv2.LINE_AA
+            )
 
     return heatmap_colored, superimposed, localized, bbox_coords

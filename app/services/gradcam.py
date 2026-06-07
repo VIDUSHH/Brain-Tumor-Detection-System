@@ -17,10 +17,23 @@ class GradCAMExplainer:
         self.model = model
         self.layer_name = layer_name or self._auto_detect_last_conv()
         
-        # Build a gradient model that outputs the target conv layer activations and predictions
+        # Find the final Dense layer to reconstruct logits (avoids softmax gradient saturation)
+        self.dense_layer = None
+        for layer in reversed(self.model.layers):
+            if isinstance(layer, tf.keras.layers.Dense):
+                self.dense_layer = layer
+                break
+
+        if self.dense_layer is None:
+            raise ValueError("Could not find Dense layer in the model.")
+
+        # Build a gradient model that outputs the target conv layer activations and Dense inputs
         self.grad_model = tf.keras.Model(
-            inputs=[self.model.inputs],
-            outputs=[self.model.get_layer(self.layer_name).output, self.model.output]
+            inputs=self.model.inputs,
+            outputs=[
+                self.model.get_layer(self.layer_name).output,
+                self.dense_layer.input
+            ]
         )
 
     def _auto_detect_last_conv(self) -> str:
@@ -40,17 +53,17 @@ class GradCAMExplainer:
             if hasattr(layer, "layers"):
                 for sub_layer in reversed(layer.layers):
                     if isinstance(sub_layer, tf.keras.layers.Conv2D):
-                        # Functional API sub-layers are accessed via the main model if flat,
-                        # or we can target the top level block. Let's return the sub_layer name.
                         return sub_layer.name
         
         raise ValueError("Could not automatically locate a Conv2D layer in the model.")
 
     def generate_gradcam(self, img_tensor: np.ndarray, class_idx: int) -> np.ndarray:
-        """Generates standard Grad-CAM heatmap."""
+        """Generates standard Grad-CAM heatmap using logits to avoid softmax saturation."""
         with tf.GradientTape() as tape:
-            conv_outputs, predictions = self.grad_model(img_tensor)
-            loss = predictions[:, class_idx]
+            conv_outputs, last_layer_input = self.grad_model([img_tensor])
+            # Reconstruct the logits manually
+            logits = tf.matmul(last_layer_input, self.dense_layer.kernel) + self.dense_layer.bias
+            loss = logits[:, class_idx]
 
         # Gradients of the active class score w.r.t the feature map activations
         grads = tape.gradient(loss, conv_outputs)
@@ -60,8 +73,7 @@ class GradCAMExplainer:
 
         # Weight the 2D activation map by channel weights
         conv_outputs = conv_outputs[0]
-        heatmap = conv_outputs @ pooled_grads[..., tf.newaxis]
-        heatmap = tf.squeeze(heatmap)
+        heatmap = tf.reduce_sum(conv_outputs * pooled_grads, axis=-1)
 
         # Apply ReLU to keep only positive contributions
         heatmap = tf.maximum(heatmap, 0.0)
@@ -74,12 +86,14 @@ class GradCAMExplainer:
         return heatmap.numpy()
 
     def generate_gradcam_plusplus(self, img_tensor: np.ndarray, class_idx: int) -> np.ndarray:
-        """Generates Grad-CAM++ heatmap for sharper tumor localization."""
+        """Generates Grad-CAM++ heatmap using logits for sharper tumor localization."""
         with tf.GradientTape() as tape1:
             with tf.GradientTape() as tape2:
                 with tf.GradientTape() as tape3:
-                    conv_outputs, predictions = self.grad_model(img_tensor)
-                    loss = predictions[:, class_idx]
+                    conv_outputs, last_layer_input = self.grad_model([img_tensor])
+                    # Reconstruct the logits manually
+                    logits = tf.matmul(last_layer_input, self.dense_layer.kernel) + self.dense_layer.bias
+                    loss = logits[:, class_idx]
                 # First order gradients
                 grads = tape3.gradient(loss, conv_outputs)
             # Second order gradients
@@ -98,7 +112,6 @@ class GradCAMExplainer:
         grads_3_val = grads_3[0]
 
         # Calculate alpha weights
-        # alpha = grads_2 / (2 * grads_2 + sum(A * grads_3))
         sum_activations = tf.reduce_sum(conv_outputs_val, axis=(0, 1))
         denominator = 2.0 * grads_2_val + sum_activations[tf.newaxis, tf.newaxis, :] * grads_3_val
         
@@ -109,8 +122,7 @@ class GradCAMExplainer:
         weights = tf.reduce_sum(alpha * tf.maximum(grads_val, 0.0), axis=(0, 1))
 
         # Generate weighted feature activation map
-        heatmap = conv_outputs_val @ weights[..., tf.newaxis]
-        heatmap = tf.squeeze(heatmap)
+        heatmap = tf.reduce_sum(conv_outputs_val * weights, axis=-1)
 
         # Apply ReLU
         heatmap = tf.maximum(heatmap, 0.0)
