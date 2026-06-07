@@ -16,43 +16,42 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from app.config import settings
 
+# Override MODEL_PATH to a temporary file for tests to prevent clashing with the real model
+test_temp_dir = tempfile.mkdtemp()
+settings.MODEL_PATH = os.path.join(test_temp_dir, "test_dummy_model.h5")
+
 @pytest.fixture(scope="session", autouse=True)
 def setup_dummy_model():
     """
     Creates a small, fully functioning Keras model with a 'top_conv' layer 
-    if no trained model exists. This allows tests to run without training.
+    for test runs to pass immediately.
     """
     model_path = settings.MODEL_PATH
-    created_dummy = False
-
-    if not os.path.exists(model_path):
-        print(f"\n[TestSetup] No model detected. Creating dummy Keras model at: {model_path}")
-        
-        # Build mini CNN with 'top_conv' layer
-        inputs = tf.keras.layers.Input(shape=(224, 224, 3))
-        x = tf.keras.layers.Conv2D(8, (3, 3), padding="same", activation="relu")(inputs)
-        # Bounding box / Grad-CAM target layer
-        x = tf.keras.layers.Conv2D(16, (3, 3), padding="same", activation="relu", name="top_conv")(x)
-        x = tf.keras.layers.GlobalAveragePooling2D()(x)
-        outputs = tf.keras.layers.Dense(4, activation="softmax")(x)
-        
-        model = tf.keras.Model(inputs=inputs, outputs=outputs)
-        model.compile(optimizer="adam", loss="categorical_crossentropy")
-        
-        # Save to target file
-        os.makedirs(os.path.dirname(model_path), exist_ok=True)
-        model.save(model_path)
-        created_dummy = True
+    print(f"\n[TestSetup] Creating test dummy Keras model at: {model_path}")
+    
+    # Build mini CNN with 'top_conv' layer
+    inputs = tf.keras.layers.Input(shape=(224, 224, 3))
+    x = tf.keras.layers.Conv2D(8, (3, 3), padding="same", activation="relu")(inputs)
+    # Bounding box / Grad-CAM target layer
+    x = tf.keras.layers.Conv2D(16, (3, 3), padding="same", activation="relu", name="top_conv")(x)
+    x = tf.keras.layers.GlobalAveragePooling2D()(x)
+    outputs = tf.keras.layers.Dense(4, activation="softmax")(x)
+    
+    model = tf.keras.Model(inputs=inputs, outputs=outputs)
+    model.compile(optimizer="adam", loss="categorical_crossentropy")
+    
+    # Save to target file
+    os.makedirs(os.path.dirname(model_path), exist_ok=True)
+    model.save(model_path)
 
     yield
 
-    # Clean up the dummy model after the session finishes
-    if created_dummy and os.path.exists(model_path):
-        print(f"\n[TestTeardown] Cleaning up dummy Keras model from: {model_path}")
-        try:
-            os.remove(model_path)
-        except Exception as e:
-            print(f"Failed to delete dummy model: {str(e)}")
+    # Clean up the dummy model and temp directory
+    print(f"\n[TestTeardown] Cleaning up test temp directory: {test_temp_dir}")
+    try:
+        shutil.rmtree(test_temp_dir)
+    except Exception as e:
+        print(f"Failed to clean up test temp directory: {str(e)}")
 
 @pytest.fixture
 def client():

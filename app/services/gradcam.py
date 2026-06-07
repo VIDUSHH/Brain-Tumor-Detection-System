@@ -98,8 +98,12 @@ class GradCAMExplainer:
                 grads = tape3.gradient(loss, conv_outputs)
             # Second order gradients
             grads_2 = tape2.gradient(grads, conv_outputs)
+            if grads_2 is None:
+                grads_2 = tf.zeros_like(conv_outputs)
         # Third order gradients
         grads_3 = tape1.gradient(grads_2, conv_outputs)
+        if grads_3 is None:
+            grads_3 = tf.zeros_like(conv_outputs)
 
         # Numerical stability epsilon
         eps = 1e-10
