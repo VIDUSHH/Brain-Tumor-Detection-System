@@ -1,3 +1,6 @@
+# Information: Production Docker containerization configuration.
+# Importance: Installs required system dependencies (OpenCV) and runs Uvicorn workers behind Gunicorn on Render.
+
 # Use Python 3.11 slim image
 FROM python:3.11-slim
 
