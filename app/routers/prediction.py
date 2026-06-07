@@ -21,13 +21,25 @@ from app.utils.metrics import LatencyTracker, format_probabilities
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-# Global predictor and explanation engine instances
+# Global predictor, explainer, and explanation engine instances
 # Predictor is initialized once, loading model weights if present
 predictor_service = Predictor()
 explanation_engine = ExplanationEngine()
+explainer_service = None
 
 def get_predictor():
     return predictor_service
+
+def get_explainer(predictor: Predictor):
+    global explainer_service
+    if explainer_service is None and predictor.model is not None:
+        try:
+            logger.info("Initializing global Grad-CAM explainer service...")
+            explainer_service = GradCAMExplainer(predictor.model)
+            logger.info("Global Grad-CAM explainer initialized successfully.")
+        except Exception as e:
+            logger.error(f"Failed to initialize Grad-CAM explainer: {str(e)}")
+    return explainer_service
 
 @router.post("/predict")
 async def predict_mri(
@@ -95,10 +107,15 @@ async def predict_mri(
 
             # 6. Generate Explainable AI (Grad-CAM and Grad-CAM++)
             if is_tumor:
-                # Grad-CAM auto-detects target layer inside the class
-                explainer = GradCAMExplainer(predictor.model)
-                heatmap_gc = explainer.generate_gradcam(preprocessed, pred_class_idx)
-                heatmap_gcpp = explainer.generate_gradcam_plusplus(preprocessed, pred_class_idx)
+                # Retrieve or initialize the cached explainer
+                explainer = get_explainer(predictor)
+                if explainer is not None:
+                    heatmap_gc = explainer.generate_gradcam(preprocessed, pred_class_idx)
+                    heatmap_gcpp = explainer.generate_gradcam_plusplus(preprocessed, pred_class_idx)
+                else:
+                    logger.warning("Grad-CAM explainer not available, falling back to zero heatmaps.")
+                    heatmap_gc = np.zeros((preprocessed.shape[1], preprocessed.shape[2]))
+                    heatmap_gcpp = np.zeros((preprocessed.shape[1], preprocessed.shape[2]))
             else:
                 # If no tumor is predicted, return empty zero heatmaps to prevent false positives
                 heatmap_gc = np.zeros((preprocessed.shape[1], preprocessed.shape[2]))
@@ -175,6 +192,11 @@ async def predict_mri(
             response_payload["localized_url"] = response_payload["urls"]["localized_url"]
 
             logger.info(f"Successful diagnosis: {pred_class_name} ({response_payload['confidence']}% confidence) in {response_payload['latency_ms']}ms")
+            
+            # Explicit garbage collection to free memory on memory-constrained hosts (Render Free Tier)
+            import gc
+            gc.collect()
+            
             return response_payload
 
         except RuntimeError as re:

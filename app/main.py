@@ -1,19 +1,21 @@
 # Information: Main application entry point for the FastAPI server.
 # Importance: Registers routers, sets up CORS middleware, mounts results folder for static access, and configures rotating file loggers.
 
+# Configure environment variables for TensorFlow CPU memory optimization before imports
 import os
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["TF_NUM_INTEROP_THREADS"] = "1"
+os.environ["TF_NUM_INTRAOP_THREADS"] = "1"
+os.environ["TF_MKL_OPTIMIZE_PRIMITIVE_MEMUSE"] = "0"
+os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
+
 import logging
 from logging.handlers import RotatingFileHandler
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
-import tensorflow as tf
-
 from app.config import settings
-from app.routers import prediction
 
-# Configure Logging: Output to console and file (logs/app.log)
+# Configure Logging: Output to console and file (logs/app.log) early
 log_formatter = logging.Formatter(
     "[%(asctime)s] %(levelname)s [%(name)s:%(lineno)s] - %(message)s"
 )
@@ -32,6 +34,20 @@ file_handler.setFormatter(log_formatter)
 root_logger.addHandler(file_handler)
 
 logger = logging.getLogger(__name__)
+
+# Configure TensorFlow threading to use single core to save RAM on CPU instances
+import tensorflow as tf
+try:
+    tf.config.threading.set_intra_op_parallelism_threads(1)
+    tf.config.threading.set_inter_op_parallelism_threads(1)
+except RuntimeError as e:
+    logger.warning(f"Could not set TensorFlow threading parameters: {str(e)}")
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse
+from app.routers import prediction
 
 # Initialize FastAPI App (disable Swagger and ReDoc docs)
 app = FastAPI(
