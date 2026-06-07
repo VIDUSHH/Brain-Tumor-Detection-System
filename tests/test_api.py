@@ -1,3 +1,6 @@
+# Information: Pytest suite testing API routes.
+# Importance: Ensures index pages, health statuses, file upload validations, extension allowed lists, and size restrictions function correctly.
+
 import io
 import pytest
 from fastapi.testclient import TestClient
