@@ -1,3 +1,6 @@
+# Information: Infrastructure configuration for Render Cloud.
+# Importance: Defines deployment triggers, specifies Docker runtime, and declares environment variables like GEMINI_API_KEY.
+
 services:
   - type: web
     name: brain-tumor-detection-system
