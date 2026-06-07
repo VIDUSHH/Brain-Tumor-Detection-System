@@ -16,10 +16,12 @@ def test_build_transfer_model():
     assert model.input_shape == (None, 224, 224, 3)
     
     # Verify base model layers are frozen
-    # We find the base model layer (named efficientnetb0) and check trainable status
-    base_layer = next((l for l in model.layers if "efficientnet" in l.name), None)
-    assert base_layer is not None
-    assert base_layer.trainable is False
+    # In Keras 3, the base model layers are inlined/flattened into model.layers.
+    # Let's find any early convolution or block layer and check its trainable status.
+    base_conv_layers = [l for l in model.layers if l.name not in ["img_augmentation", "predictions"] and ("conv" in l.name or "block" in l.name)]
+    assert len(base_conv_layers) > 0
+    for layer in base_conv_layers:
+        assert layer.trainable is False
 
 def test_predictor_runs_inference(dummy_mri_image):
     """Tests the Predictor service loading and running prediction on preprocessed image."""

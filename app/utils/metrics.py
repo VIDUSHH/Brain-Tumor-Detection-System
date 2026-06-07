@@ -2,6 +2,7 @@
 # Importance: Provides high-precision duration trackers (latency calculation) and maps raw float probability arrays to class name dictionaries.
 
 import time
+import numpy as np
 from typing import Dict
 
 class LatencyTracker:
@@ -25,5 +26,4 @@ class LatencyTracker:
 
 def format_probabilities(probs: np.ndarray, class_mapping: Dict[int, str]) -> Dict[str, float]:
     """Helper to convert a flat array of probabilities to a class name map."""
-    import numpy as np
     return {class_mapping[i]: float(probs[i]) for i in range(len(probs))}

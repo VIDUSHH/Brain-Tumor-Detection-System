@@ -8,6 +8,7 @@ from fastapi import APIRouter, UploadFile, File, HTTPException, Request, Depends
 from fastapi.responses import JSONResponse
 from PIL import Image
 import numpy as np
+import cv2
 
 from app.config import settings
 from app.services.predictor import Predictor
