@@ -1,3 +1,6 @@
+# Information: Explainable AI service implementing Grad-CAM and Grad-CAM++ algorithms in TensorFlow.
+# Importance: Calculates gradients of prediction scores w.r.t the last convolutional layer output to output normalized visual heatmaps.
+
 import numpy as np
 import tensorflow as tf
 from typing import Tuple, Optional
