@@ -1,3 +1,6 @@
+# Information: Pytest suite checking model structures.
+# Importance: Asserts that model builders produce target inputs and outputs, and verifies predictor inference distributions sum to 1.0.
+
 import os
 import pytest
 import numpy as np
