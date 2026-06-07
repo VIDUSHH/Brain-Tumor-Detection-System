@@ -69,23 +69,21 @@ pip install -r requirements.txt
 
 ## Training the Model
 
-Execute the training script from the project root. The training pipeline implements random horizontal/vertical flips, rotations, zooming, class weight balancing, early stopping, and automatic model checkpoints. It also enables mixed-precision float16 training if a GPU is detected.
+Model training is executed using the interactive Jupyter Notebook [training/train.ipynb](training/train.ipynb). The training pipeline implements random horizontal/vertical flips, rotations, zooming, class weight balancing, early stopping, and automatic model checkpoints. It also enables mixed-precision float16 training if a GPU is detected.
 
-To train with the default **EfficientNet-B3** backbone:
-```bash
-python training/train.py --model_type efficientnet_b3 --epochs_head 10 --epochs_ft 15 --batch_size 32
-```
-
-To train with the lighter **EfficientNet-B0** backbone:
-```bash
-python training/train.py --model_type efficientnet_b0 --epochs_head 10 --epochs_ft 15 --batch_size 32
-```
+To train the model:
+1. Open the [training/train.ipynb](training/train.ipynb) notebook.
+2. Select your Python virtual environment kernel.
+3. Configure the `MODEL_TYPE` variable in the configuration block (choose `"efficientnet_b3"` or `"efficientnet_b0"`).
+4. Run all cells to execute Stage 1 (head training) and Stage 2 (base model fine-tuning). The best weights will be saved automatically to `models/best_model.h5`.
 
 ### Evaluating Performance
-Once training completes, evaluate the saved model (`models/best_model.h5`) on the testing set to print classification tables and save Confusion Matrix and ROC curves under `artifacts/evaluation/`:
-```bash
-python training/evaluate.py
-```
+
+Model evaluation is executed using the interactive Jupyter Notebook [training/evaluate.ipynb](training/evaluate.ipynb).
+
+To evaluate:
+1. Open the [training/evaluate.ipynb](training/evaluate.ipynb) notebook.
+2. Run all cells to run inference on the testing set, generate classification reports, calculate multi-class One-vs-Rest ROC-AUC scores, and plot the Confusion Matrix and ROC Curves (which are saved under `artifacts/evaluation/`).
 
 ---
 
