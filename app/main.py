@@ -1,3 +1,6 @@
+# Information: Main application entry point for the FastAPI server.
+# Importance: Registers routers, sets up CORS middleware, mounts results folder for static access, and configures rotating file loggers.
+
 import os
 import logging
 from logging.handlers import RotatingFileHandler
