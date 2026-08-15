@@ -587,14 +587,12 @@
                     <div class="tabs">
                         <button class="tab-btn active" data-target="img-original">Original Scan</button>
                         <button class="tab-btn" data-target="img-gradcam">Grad-CAM</button>
-                        <button class="tab-btn" data-target="img-gradcampp">Grad-CAM++</button>
                         <button class="tab-btn" data-target="img-localized">Tumor Localization</button>
                     </div>
                     
                     <div class="visual-display-wrapper">
                         <img id="img-original" class="visual-image active" src="#" alt="Original scan">
                         <img id="img-gradcam" class="visual-image" src="#" alt="Grad-CAM heatmap">
-                        <img id="img-gradcampp" class="visual-image" src="#" alt="Grad-CAM++ heatmap">
                         <img id="img-localized" class="visual-image" src="#" alt="Localized boundary bounding box">
                     </div>
                 </div>
@@ -718,7 +716,6 @@
             "Reading voxel slice matrices...",
             "Performing EfficientNet feature extractions...",
             "Calculating Grad-CAM weight maps...",
-            "Calculating second/third order Grad-CAM++ gradients...",
             "Segmenting lesion contours & bounding boxes...",
             "Compiling clinical reasoning and explanations..."
         ];
@@ -873,7 +870,6 @@
             // Render images
             document.getElementById('img-original').src = data.urls.original_url;
             document.getElementById('img-gradcam').src = data.urls.heatmap_gradcam_url;
-            document.getElementById('img-gradcampp').src = data.urls.heatmap_gradcampp_url;
             document.getElementById('img-localized').src = data.urls.localized_url;
             
             // Set first tab as active on render

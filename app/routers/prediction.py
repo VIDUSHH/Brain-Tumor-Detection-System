@@ -33,7 +33,7 @@ async def predict_mri(
 ):
     """
     Predicts brain tumor type from a patient's MRI scan.
-    Generates Grad-CAM and Grad-CAM++ heatmaps, bounding box coordinates, and clinical explanations.
+    Generates a Grad-CAM heatmap, tumor localization bounding box, and clinical explanations.
     """
     logger.info(f"Received prediction request for file: {file.filename}")
 
@@ -89,25 +89,19 @@ async def predict_mri(
             # 0=glioma, 1=meningioma, 2=notumor, 3=pituitary
             is_tumor = (pred_class_name != "notumor")
 
-            # 6. Generate Explainable AI (Grad-CAM and Grad-CAM++)
+            # 6. Generate Explainable AI (Grad-CAM)
             if is_tumor:
                 # Grad-CAM auto-detects target layer inside the class
                 explainer = GradCAMExplainer(predictor.model)
-                heatmap_gc = explainer.generate_gradcam(preprocessed, pred_class_idx)
-                heatmap_gcpp = explainer.generate_gradcam_plusplus(preprocessed, pred_class_idx)
+                # Sharpen the heatmap (power > 1) to focus localization on the hottest cluster
+                heatmap_gc = explainer.generate_gradcam(preprocessed, pred_class_idx, power=2.0)
             else:
                 # If no tumor is predicted, return empty zero heatmaps to prevent false positives
                 heatmap_gc = np.zeros((preprocessed.shape[1], preprocessed.shape[2]))
-                heatmap_gcpp = np.zeros((preprocessed.shape[1], preprocessed.shape[2]))
 
             # 7. Localize the tumor region and save files
-            # For localization, we use the sharper Grad-CAM++ heatmap
-            heatmap_col_gc, overlay_gc, _, _ = generate_visualizations(
-                pil_image, heatmap_gc, threshold_ratio=0.45, draw_boxes=False
-            )
-            
-            heatmap_col_gcpp, overlay_gcpp, localized_gcpp, bbox_coords = generate_visualizations(
-                pil_image, heatmap_gcpp, threshold_ratio=0.45, draw_boxes=is_tumor
+            heatmap_col_gc, overlay_gc, localized_gc, bbox_coords = generate_visualizations(
+                pil_image, heatmap_gc, threshold_ratio=0.45, draw_boxes=is_tumor
             )
 
             # Save generated images with unique IDs
@@ -121,9 +115,7 @@ async def predict_mri(
             # Save explainers
             save_result_image(heatmap_col_gc, f"heatmap_gradcam_{req_id}.jpg")
             save_result_image(overlay_gc, f"overlay_gradcam_{req_id}.jpg")
-            save_result_image(heatmap_col_gcpp, f"heatmap_gradcampp_{req_id}.jpg")
-            save_result_image(overlay_gcpp, f"overlay_gradcampp_{req_id}.jpg")
-            save_result_image(localized_gcpp, f"localization_{req_id}.jpg")
+            save_result_image(localized_gc, f"localization_{req_id}.jpg")
 
             # 8. Generate Medical Explanation
             explanation_data = explanation_engine.generate_explanation(
@@ -159,8 +151,6 @@ async def predict_mri(
                     "original_url": f"{base_url}/static/results/{orig_filename}",
                     "heatmap_gradcam_url": f"{base_url}/static/results/heatmap_gradcam_{req_id}.jpg",
                     "overlay_gradcam_url": f"{base_url}/static/results/overlay_gradcam_{req_id}.jpg",
-                    "heatmap_gradcampp_url": f"{base_url}/static/results/heatmap_gradcampp_{req_id}.jpg",
-                    "overlay_gradcampp_url": f"{base_url}/static/results/overlay_gradcampp_{req_id}.jpg",
                     "localized_url": f"{base_url}/static/results/localization_{req_id}.jpg"
                 }
             }

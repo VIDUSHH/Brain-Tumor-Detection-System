@@ -35,7 +35,7 @@ CLINICAL_KNOWLEDGE = {
             "Schedule a contrast-enhanced brain MRI (with spectroscopy or perfusion if recommended by the specialist).",
             "Consult a neuro-oncologist to review options for surgical biopsy/resection, radiation, and chemotherapy."
         ],
-        "reasoning": "The model detected abnormal high-intensity tissue patterns in the brain parenchyma. Grad-CAM/Grad-CAM++ highlighted concentrated activation around the suspected lesion area. The detected morphology resembles common Glioma characteristics including irregular margins and infiltrative growth patterns."
+        "reasoning": "The model detected abnormal high-intensity tissue patterns in the brain parenchyma. Grad-CAM highlighted concentrated activation around the suspected lesion area. The detected morphology resembles common Glioma characteristics including irregular margins and infiltrative growth patterns."
     },
     "meningioma": {
         "full_name": "Meningioma (Extra-axial Brain Tumor)",
