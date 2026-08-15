@@ -1,6 +1,3 @@
-# Information: Training data pipeline module.
-# Importance: Configures tf.data.Dataset loaders with performance prefetching and computes class weights to combat dataset imbalances.
-
 import os
 import tensorflow as tf
 from typing import Tuple, Dict, Optional
@@ -9,11 +6,22 @@ from typing import Tuple, Dict, Optional
 DEFAULT_TRAIN_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "Brain Tumor data", "Training"))
 DEFAULT_TEST_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "Brain Tumor data", "Testing"))
 
+def build_augmentation() -> tf.keras.Sequential:
+    """Builds the data augmentation pipeline applied only to training images."""
+    return tf.keras.Sequential([
+        tf.keras.layers.RandomFlip("horizontal_and_vertical"),
+        tf.keras.layers.RandomRotation(0.15),
+        tf.keras.layers.RandomTranslation(height_factor=0.1, width_factor=0.1),
+        tf.keras.layers.RandomZoom(0.1),
+        tf.keras.layers.RandomContrast(0.1)
+    ], name="img_augmentation")
+
 def get_data_loaders(
     train_dir: str = DEFAULT_TRAIN_DIR,
     test_dir: str = DEFAULT_TEST_DIR,
     image_size: int = 224,
-    batch_size: int = 32
+    batch_size: int = 32,
+    augment: bool = True
 ) -> Tuple[tf.data.Dataset, tf.data.Dataset]:
     """
     Creates tf.data.Dataset pipelines for training and testing images.
@@ -23,6 +31,7 @@ def get_data_loaders(
         test_dir: Directory containing testing images grouped by subdirectories.
         image_size: Target height/width for resizing images.
         batch_size: Batch size for training.
+        augment: Whether to apply data augmentation to the training set.
         
     Returns:
         train_ds: Prefetched tf.data.Dataset for training.
@@ -50,6 +59,10 @@ def get_data_loaders(
         shuffle=True,
         seed=42
     )
+
+    if augment:
+        augmentation = build_augmentation()
+        train_ds = train_ds.map(lambda x, y: (augmentation(x, training=True), y))
 
     # Load testing/validation dataset
     test_ds = tf.keras.utils.image_dataset_from_directory(

@@ -1,8 +1,3 @@
-# Information: Pytest suite checking Explainable AI.
-# Importance: Validates target layer auto-detection, Grad-CAM/Grad-CAM++ calculations, and checks bounding box coordinates extraction.
-
-import os
-import pytest
 import numpy as np
 import tensorflow as tf
 from PIL import Image

@@ -1,10 +1,7 @@
-# Information: Tumor localization service using OpenCV.
-# Importance: Performs binary mask thresholding on heatmaps and computes contours to draw red highlights and yellow bounding boxes around tumors.
-
 import cv2
 import numpy as np
 from PIL import Image
-from typing import Dict, Tuple, Optional, List
+from typing import Dict, Tuple, Optional
 
 def generate_visualizations(
     original_image: Image.Image,

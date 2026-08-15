@@ -1,8 +1,17 @@
+---
+title: Brain Tumor Detection And Explainable AI
+emoji: 🧠
+colorFrom: red
+colorTo: blue
+sdk: docker
+app_port: 10000
+---
+
 # Brain Tumor Detection & Explainable AI System
 
-An advanced, production-grade Deep Learning and Explainable AI (XAI) system for detecting, classifying, and localizing brain tumors from MRI scans using TensorFlow/Keras and FastAPI. 
+An advanced, production-grade Deep Learning and Explainable AI (XAI) system for detecting, classifying, and localizing brain tumors from MRI scans using TensorFlow/Keras and FastAPI.
 
-This system classifies scans into four distinct clinical categories (Glioma, Meningioma, Pituitary, or No Tumor) and provides transparent visual explanations of its decisions using **Grad-CAM** and **Grad-CAM++** localization heatmaps alongside bounding boxes. If configured, it also leverages the **Google Gemini API** to translate clinical findings into warm, patient-friendly summaries.
+This system classifies scans into four distinct clinical categories (**Glioma**, **Meningioma**, **Pituitary**, or **No Tumor**) and provides transparent visual explanations of its decisions using **Grad-CAM** and **Grad-CAM++** localization heatmaps alongside contour outlines and bounding boxes. If configured, it also leverages the **Google Gemini API** to translate clinical findings into warm, patient-friendly summaries.
 
 ---
 
@@ -10,11 +19,45 @@ This system classifies scans into four distinct clinical categories (Glioma, Men
 
 - **Multi-Class Tumor Classification**: Classifies brain MRI scans into 4 categories: Glioma, Meningioma, Pituitary, or No Tumor.
 - **Switchable Deep Learning Architectures**: Configurable transfer learning backbones supporting `EfficientNet-B3` (default) and `EfficientNet-B0`.
-- **Explainable AI (XAI) Visualizations**: Generates pixel-level heatmap overlays highlighting exactly where the neural network focused using **Grad-CAM** and **Grad-CAM++**.
-- **Bounding Box Localization**: Auto-detects hottest activation areas on the heatmaps and draws bounding boxes/contours around the suspected lesion boundaries.
+- **Explainable AI (XAI) Visualizations**: Generates pixel-level heatmap overlays highlighting exactly where the neural network focused using **Grad-CAM** (first-order gradients) and **Grad-CAM++** (second/third-order gradients, sharper localization).
+- **Tumor Localization**: Auto-detects hottest activation regions from the Grad-CAM++ heatmap, draws a **red contour outline** around the suspected lesion, and a **yellow bounding box** with coordinates.
 - **Generative Patient Explanations**: Fully integrates Google Gemini (via `google-generativeai`) to convert complex clinical probabilities, pathology traits, and risks into empathetic patient-friendly summaries.
-- **Production-Grade API Backend**: Hosted via FastAPI with strict payload size validation (10MB maximum), image verification, CORS enablement, and logging rotation (`logs/app.log`).
+- **Production-Grade API Backend**: FastAPI with strict payload size validation (10MB maximum), file-extension allow-list, image integrity verification, CORS enablement, and rotating file logs (`logs/app.log`, 5MB × 5 backups).
+- **Graceful Error Handling**: Returns clear **503** responses when the model isn't trained/loaded, **413** for oversized files, and **400** for invalid/corrupt uploads.
 - **One-Click Cloud Deployment**: Pre-configured with a multi-worker production Docker environment ready for deployment on **Render** (via `render.yaml`).
+
+---
+
+## Project Structure
+
+```
+Brain-Tumor_Project/
+├── app/
+│   ├── main.py                  # FastAPI app entry, CORS, static results mount, rotating loggers
+│   ├── config.py                # Pydantic settings (model, paths, limits, class mapping)
+│   ├── routers/
+│   │   └── prediction.py        # POST /predict endpoint & pipeline orchestration
+│   ├── services/
+│   │   ├── predictor.py         # Model loading + inference (hot reload fallback)
+│   │   ├── gradcam.py           # Grad-CAM & Grad-CAM++ (higher-order gradients)
+│   │   ├── localization.py      # Heatmap overlay, contours, bounding boxes
+│   │   └── explanation_engine.py# Clinical knowledge-base + optional Gemini summaries
+│   ├── utils/
+│   │   ├── image_processing.py  # Load / preprocess / save images
+│   │   └── metrics.py           # Latency tracker, probability formatting
+│   └── templates/index.html     # Interactive uploader dashboard
+├── training/
+│   ├── data_loader.py           # tf.data loaders + class weights
+│   └── train.ipynb              # Two-stage transfer-learning training notebook
+├── tests/                       # pytest suite (API, Grad-CAM, model)
+├── models/best_model.h5         # Trained weights (created by training)
+├── uploads/                     # Uploaded files
+├── results/                     # Generated images (served at /static/results)
+├── logs/app.log                 # Rotating application log
+├── Dockerfile                   # Python 3.11-slim, Gunicorn + Uvicorn
+├── render.yaml                  # Render blueprint (Docker runtime)
+└── requirements.txt
+```
 
 ---
 
@@ -36,7 +79,7 @@ Brain Tumor data/
     └── pituitary/
 ```
 
-- **Classes**:
+- **Classes** (alphabetical order matches `image_dataset_from_directory`):
   - `0 = glioma` (Intra-axial brain tumor)
   - `1 = meningioma` (Extra-axial meningeal tumor)
   - `2 = notumor` (Normal brain MRI scan)
@@ -44,9 +87,7 @@ Brain Tumor data/
 
 ---
 
-## Installation & Local Setup
-
-Follow these step-by-step instructions to get the application running locally on your PC.
+## Installation
 
 ### 1. Clone the Repository
 ```bash
@@ -54,93 +95,78 @@ git clone https://github.com/VIDUSHH/Brain-Tumor-Detection-System.git
 cd Brain-Tumor-Detection-System
 ```
 
-### 2. Set Up a Python Virtual Environment
-We recommend using `.venv` as the virtual environment folder:
+### 2. Set Up a Virtual Environment
 ```bash
-# Create the virtual environment
-python -m venv .venv
+python -m venv venv
 ```
-
-Activate it depending on your operating system:
-* **Windows (PowerShell)**: 
-  ```powershell
-  # If you get a script execution policy restriction error, run:
-  # Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
-  .\.venv\Scripts\Activate.ps1
-  ```
-* **Windows (Command Prompt)**: 
-  ```cmd
-  .venv\Scripts\activate.bat
-  ```
-* **macOS/Linux**: 
-  ```bash
-  source .venv/bin/activate
-  ```
+Activate it:
+- **Windows**: `venv\Scripts\activate`
+- **macOS/Linux**: `source venv/bin/activate`
 
 ### 3. Install Dependencies
-Make sure your virtual environment is active, then install all required packages:
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4. Configure Environment Variables (Optional)
-To enable the patient-friendly, empathetic AI summaries generated by Google Gemini, create a `.env` file in the root directory and add your API key:
-```env
-GEMINI_API_KEY=your_google_gemini_api_key_here
-MODEL_TYPE=efficientnet_b3
-```
+> **Note on dependency versions:** The project is built and tested against the TensorFlow 2.15 / Keras 2.15 stack. If you encounter import errors after installing (e.g., `cannot import name 'pywrap_tensorflow'` or `RecursionError`), pin the compatible set:
+> ```bash
+> pip install tensorflow==2.15.0 keras==2.15.0 numpy==1.26.4 protobuf==4.25.9
+> ```
 
 ---
 
-## Model Reassembly (Automated)
+## Training the Model
 
-The trained model file `best_model.h5` is approximately 134 MB, which exceeds GitHub's standard 100 MB file limit. To handle this, the model has been split into three parts:
-- `models/best_model.h5.part1`
-- `models/best_model.h5.part2`
-- `models/best_model.h5.part3`
+Model training is executed using the interactive Jupyter Notebook [training/train.ipynb](training/train.ipynb). The training pipeline implements random horizontal/vertical flips, rotations, translations, zoom and contrast augmentation, class weight balancing, early stopping, learning-rate reduction, and automatic model checkpointing. It also enables mixed-precision float16 training automatically when a GPU is detected.
 
-**No manual reassembly is required.** On the very first launch of the local FastAPI app or test suite, the system will automatically detect these parts, reassemble them into the single `models/best_model.h5` file, and load the weights.
+To train the model:
+1. Open the [training/train.ipynb](training/train.ipynb) notebook.
+2. Select your Python virtual environment kernel.
+3. Configure the `MODEL_TYPE` variable in the configuration block (choose `"efficientnet_b3"` or `"efficientnet_b0"`).
+4. Run all cells to execute **Stage 1** (head training at LR 1e-3, base frozen) and **Stage 2** (base model fine-tuning at LR 1e-5, BatchNorm layers kept frozen for stability).
+5. The best weights are saved automatically to `models/best_model.h5` via a `ModelCheckpoint` callback.
 
----
-
-## Training the Model (Optional)
-
-If you wish to retrain the model on the MRI dataset:
-1. Ensure the dataset folder structure matches the **Dataset Structure** section.
-2. Open the [training/train.ipynb](training/train.ipynb) notebook in VS Code or Jupyter.
-3. Select your `.venv` virtual environment kernel.
-4. Run all cells to train the head and fine-tune the model. The best weights will be saved automatically to `models/best_model.h5`.
-
-To evaluate performance (Confusion Matrix, ROC curves, reports):
-1. Open the [training/evaluate.ipynb](training/evaluate.ipynb) notebook.
-2. Run all cells. The evaluation plots will be saved under the `artifacts/evaluation/` folder.
+### Training Configuration (defaults)
+| Parameter        | Value                              |
+|------------------|------------------------------------|
+| Backbone         | `efficientnet_b3` (or `efficientnet_b0`) |
+| Input size       | 224 × 224 × 3                      |
+| Batch size       | 32                                 |
+| Head epochs      | 10 (LR 1e-3)                       |
+| Fine-tune epochs | 15 (LR 1e-5)                       |
+| Output head      | Dense(256, ReLU) → Dropout(0.3) → Dense(4, softmax, float32) |
 
 ---
 
-## Running the Web App Locally
+## Running the Application
 
-Once dependencies are installed and the environment is activated, start the local server:
+Start the FastAPI application locally:
 ```bash
 uvicorn app.main:app --reload
 ```
 
-- **Interactive Dashboard (Web Interface)**: Open your browser and go to `http://127.0.0.1:8000/` to access the clinical uploader interface.
-- **Interactive API Documentation**: Access `http://127.0.0.1:8000/docs` (Swagger UI) to test endpoints directly.
+- **Local Address**: `http://127.0.0.1:8000`
+- **Uploader Dashboard**: `http://127.0.0.1:8000/` (interactive HTML demo)
+- **Health Check**: `http://127.0.0.1:8000/health` (service status, model load state, device)
+
+> Interactive Swagger/ReDoc docs are disabled in production (`docs_url=None`) to keep the public surface minimal.
+
+> **Important:** The prediction endpoint requires a trained model at `models/best_model.h5`. If the file is missing, the API still boots but `/predict` returns **503** with a clear message. Train the model first (see above).
 
 ---
 
 ## Example API Response
 
 ### `POST /predict`
-Submit an MRI image to the `/predict` endpoint (e.g. as `multipart/form-data`).
+Submit an MRI image to the `/predict` endpoint (as `multipart/form-data`, field name `file`).
 
 #### Request Header (Optional for AI Patient Summaries)
-- `X-Gemini-API-Key`: `your_gemini_api_key_here` (or define `GEMINI_API_KEY` in environment)
+- `X-Gemini-API-Key`: `your_gemini_api_key_here` (or define `GEMINI_API_KEY` in the environment)
 
 #### Response JSON
 ```json
 {
-  "prediction": "Glioma",
+  "prediction": "glioma",
   "confidence": 98.45,
   "all_scores": {
     "glioma": 98.45,
@@ -185,18 +211,45 @@ Submit an MRI image to the `/predict` endpoint (e.g. as `multipart/form-data`).
 }
 ```
 
+> **Notes:**
+> - `bbox_coordinates` is `null` when no tumor is predicted (a `notumor` scan).
+> - `generative_explanation` is only present when a Gemini API key is configured.
+> - All URLs are served from the `results/` directory mounted at `/static/results`.
+
 ---
 
 ## Grad-CAM Visualizations & Localization
 
 The system outputs multiple files in the `results/` folder for every prediction:
-1. **Heatmap** (`heatmap_gradcam[pp]_<id>.jpg`): A JET-colormapped image visualizing the pixel-level importance. Red areas indicate regions that strongly influenced the model to output the prediction, while blue regions indicate negligible influence.
-2. **Overlay** (`overlay_gradcam[pp]_<id>.jpg`): Blends the JET heatmap (40% weight) with the grayscale original MRI scan (60% weight). This allows radiologists to map model activations back to precise brain anatomical structures (e.g. ventricles, frontal lobes, pituitary fossa).
-3. **Localization** (`localization_<id>.jpg`): Applies a binary threshold at 40% of the maximum activation intensity. Contours are computed around the segmented areas and superimposed as a **red outline**, with a **yellow bounding box** showing coordinates of the suspect tumor.
+
+1. **Heatmap** (`heatmap_gradcam[pp]_<id>.jpg`): A JET-colormapped image visualizing pixel-level importance. Red areas indicate regions that strongly influenced the model's prediction; blue regions indicate negligible influence.
+2. **Overlay** (`overlay_gradcam[pp]_<id>.jpg`): Blends the JET heatmap (35% weight) with the original MRI scan (65% weight). This lets radiologists map model activations back to precise brain anatomical structures (e.g., ventricles, frontal lobes, pituitary fossa).
+3. **Localization** (`localization_<id>.jpg`): Builds a binary mask by thresholding the Grad-CAM++ heatmap at **45%** of maximum activation, cleans it with morphological open/close operations, computes the largest contour above a 300-pixel noise floor, and draws a **red contour outline** plus a **yellow bounding box** labeled "Suspected Tumor Region".
 
 ### Grad-CAM vs. Grad-CAM++
-- **Grad-CAM**: Uses first-order gradients. It is excellent for identifying general regions of interest, but can sometimes result in broad, fuzzy activations.
-- **Grad-CAM++**: Integrates positive second- and third-order gradients. This results in sharper, more focused localization maps, especially for scans containing multiple lesions or tiny tumors.
+- **Grad-CAM**: Uses first-order gradients. Excellent for identifying general regions of interest, but can produce broad, fuzzy activations.
+- **Grad-CAM++**: Integrates positive second- and third-order gradients for per-pixel weighting, producing sharper, more focused localization maps — especially for scans with multiple lesions or tiny tumors.
+
+### Implementation details
+- The explainer **auto-detects the last Conv2D layer** (`top_conv` for EfficientNet, with a reverse-scan fallback) so it works across switchable backbones.
+- **Logits are reconstructed** as `matmul(dense_input, dense_kernel) + dense_bias` and differentiated *before* softmax, avoiding gradient saturation from the softmax output.
+- Higher-order gradients for Grad-CAM++ are computed inside a **single persistent `GradientTape`** context (gradients computed outside a tape context are not differentiable in TensorFlow 2.x), with `None`-guards for degenerate cases.
+- When `notumor` is predicted, **zero heatmaps** are returned to prevent misleading false-positive activations; the localization step then returns a clean, unmodified scan.
+
+---
+
+## Running Tests
+
+The project ships a pytest suite covering the API, Grad-CAM, and model layers:
+
+```bash
+pytest tests/ -v
+```
+
+The tests use a session-scoped dummy-model fixture (built in `tests/conftest.py`) so the full suite runs **even without a trained model**:
+- `tests/test_api.py` — root page, `/health`, successful `/predict`, invalid-extension (400), oversized-file (413).
+- `tests/test_gradcam.py` — layer auto-detection, Grad-CAM & Grad-CAM++ heatmap shapes/range, localization overlays and bounding boxes.
+- `tests/test_model.py` — transfer model architecture and inference output.
 
 ---
 
@@ -211,11 +264,28 @@ This project contains a `render.yaml` specification that allows you to easily sp
 4. Connect your GitHub repository.
 5. Render will automatically parse the `render.yaml` file and configure a Web Service:
    - **Environment**: Docker
-   - **Plan**: Starter (recommended to support TensorFlow memory overhead)
+   - **Plan**: Starter (sufficient RAM for TensorFlow memory overhead)
+   - **Runtime**: `gunicorn -w 4 -k uvicorn.workers.UvicornWorker app.main:app --bind 0.0.0.0:10000`
 6. Add your environment variables in the Render console:
    - `GEMINI_API_KEY`: *(Optional)* Your Google Gemini API key to enable generative summaries.
    - `MODEL_TYPE`: `efficientnet_b3` *(Default)* or `efficientnet_b0`.
-7. Click **Approve** to build and launch your container.
+   - `TF_CPP_MIN_LOG_LEVEL`: `2` *(quiet TensorFlow logging)*
+7. Click **Apply** to build and launch your container.
+
+> **Note:** Since the trained model is not committed to the repository, upload `models/best_model.h5` to your deployed instance (or bind storage) after the first build.
+
+---
+
+## Environment Variables
+
+| Variable               | Default            | Description                                                          |
+|------------------------|--------------------|----------------------------------------------------------------------|
+| `MODEL_TYPE`           | `efficientnet_b3`  | Backbone architecture (`efficientnet_b3` or `efficientnet_b0`)       |
+| `GEMINI_API_KEY`       | *(empty)*          | Google Gemini key for patient-friendly AI summaries                  |
+| `IMAGE_SIZE`           | `224`              | Model input resolution                                               |
+| `TF_CPP_MIN_LOG_LEVEL` | *(unset)*          | TensorFlow log verbosity (set `2` in production)                     |
+
+Settings are read from environment variables or an optional `.env` file via Pydantic `BaseSettings`.
 
 ---
 

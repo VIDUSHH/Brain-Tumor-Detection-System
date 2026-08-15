@@ -1,6 +1,3 @@
-# Information: System-wide configuration module using Pydantic Settings.
-# Importance: Defines limits (10MB payload size), allowed MRI formats, class mapping, and prepares logs/uploads directories on boot.
-
 import os
 from pydantic_settings import BaseSettings
 from typing import Set, Dict

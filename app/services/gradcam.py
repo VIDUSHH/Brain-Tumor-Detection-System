@@ -1,6 +1,3 @@
-# Information: Explainable AI service implementing Grad-CAM and Grad-CAM++ algorithms in TensorFlow.
-# Importance: Calculates gradients of prediction scores w.r.t the last convolutional layer output to output normalized visual heatmaps.
-
 import numpy as np
 import tensorflow as tf
 from typing import Tuple, Optional
@@ -87,21 +84,36 @@ class GradCAMExplainer:
 
     def generate_gradcam_plusplus(self, img_tensor: np.ndarray, class_idx: int) -> np.ndarray:
         """Generates Grad-CAM++ heatmap using logits for sharper tumor localization."""
-        with tf.GradientTape() as tape1:
-            with tf.GradientTape() as tape2:
-                with tf.GradientTape() as tape3:
-                    conv_outputs, last_layer_input = self.grad_model([img_tensor])
-                    # Reconstruct the logits manually
-                    logits = tf.matmul(last_layer_input, self.dense_layer.kernel) + self.dense_layer.bias
-                    loss = logits[:, class_idx]
-                # First order gradients
-                grads = tape3.gradient(loss, conv_outputs)
-            # Second order gradients
-            grads_2 = tape2.gradient(grads, conv_outputs)
-            if grads_2 is None:
-                grads_2 = tf.zeros_like(conv_outputs)
-        # Third order gradients
-        grads_3 = tape1.gradient(grads_2, conv_outputs)
+        # Use a single persistent tape and compute all gradients INSIDE the context
+        # This allows higher-order gradients to be recorded and differentiated further
+        with tf.GradientTape(persistent=True) as tape:
+            conv_outputs, last_layer_input = self.grad_model([img_tensor])
+            tape.watch(conv_outputs)
+            
+            # Reconstruct the logits manually
+            logits = tf.matmul(last_layer_input, self.dense_layer.kernel) + self.dense_layer.bias
+            loss = logits[:, class_idx]
+            
+            # First order gradients - computed INSIDE tape context
+            grads = tape.gradient(loss, conv_outputs)
+            
+            # Second order gradients - computed INSIDE tape context
+            grads_2 = tape.gradient(grads, conv_outputs)
+            
+            # Third order gradients - computed INSIDE tape context (only if 2nd order exists)
+            if grads_2 is not None:
+                grads_3 = tape.gradient(grads_2, conv_outputs)
+            else:
+                grads_3 = None
+        
+        # Clean up persistent tape
+        del tape
+
+        # Handle case where higher-order gradients are None (flat regions or simple models)
+        if grads is None:
+            grads = tf.zeros_like(conv_outputs)
+        if grads_2 is None:
+            grads_2 = tf.zeros_like(conv_outputs)
         if grads_3 is None:
             grads_3 = tf.zeros_like(conv_outputs)
 
@@ -115,7 +127,8 @@ class GradCAMExplainer:
         grads_2_val = grads_2[0]
         grads_3_val = grads_3[0]
 
-        # Calculate alpha weights
+        # Calculate alpha weights per the Grad-CAM++ paper
+        # alpha = grad_2 / (2 * grad_2 + sum(activations) * grad_3)
         sum_activations = tf.reduce_sum(conv_outputs_val, axis=(0, 1))
         denominator = 2.0 * grads_2_val + sum_activations[tf.newaxis, tf.newaxis, :] * grads_3_val
         

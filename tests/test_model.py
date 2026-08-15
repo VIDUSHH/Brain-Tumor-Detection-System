@@ -1,7 +1,3 @@
-# Information: Pytest suite checking model structures.
-# Importance: Asserts that model builders produce target inputs and outputs, and verifies predictor inference distributions sum to 1.0.
-
-import os
 import numpy as np
 import tensorflow as tf
 from app.services.predictor import build_transfer_model, Predictor

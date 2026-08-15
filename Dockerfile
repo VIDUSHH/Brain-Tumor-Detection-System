@@ -1,6 +1,3 @@
-# Information: Production Docker containerization configuration.
-# Importance: Installs required system dependencies (OpenCV) and runs Uvicorn workers behind Gunicorn on Render.
-
 # Use Python 3.11 slim image
 FROM python:3.11-slim
 
@@ -24,15 +21,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code and model weights
+# Copy application code
 COPY app/ ./app/
-COPY models/ ./models/
 
 # Create necessary directories for local storage (ignored by git, needed at runtime)
-RUN mkdir -p uploads results logs
+RUN mkdir -p uploads results logs models
 
 # Expose port
 EXPOSE 10000
 
-# Command to run FastAPI server
-CMD uvicorn app.main:app --host 0.0.0.0 --port $PORT
+# Command to run FastAPI server under Uvicorn and Gunicorn for production scaling
+CMD gunicorn -w 4 -k uvicorn.workers.UvicornWorker app.main:app --bind 0.0.0.0:$PORT --timeout 120

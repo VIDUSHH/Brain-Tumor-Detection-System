@@ -1,9 +1,18 @@
-# Information: Diagnosis explanation service with clinical knowledge and Gemini AI support.
-# Importance: Generates detailed reports detailing symptoms, characteristics, severity, and recommendations, calling Gemini for friendly summaries.
-
-import google.generativeai as genai
 import os
 from typing import Dict, Any, Optional
+
+# Lazy import for google.generativeai to avoid circular import issues
+_genai = None
+
+def _get_genai():
+    global _genai
+    if _genai is None:
+        try:
+            import google.generativeai as genai
+            _genai = genai
+        except ImportError:
+            _genai = False
+    return _genai if _genai is not False else None
 
 CLINICAL_KNOWLEDGE = {
     "glioma": {
@@ -121,6 +130,10 @@ class ExplanationEngine:
         """Generates an empathetic, patient-friendly explanation using Gemini API if key is present."""
         if not self.api_key:
             return "AI Explanation: Gemini API Key not configured. Provide GEMINI_API_KEY in environment to enable."
+
+        genai = _get_genai()
+        if genai is None:
+            return "AI Explanation: google-generativeai package not available or has import issues."
 
         try:
             genai.configure(api_key=self.api_key)

@@ -1,6 +1,3 @@
-# Information: Diagnostics metrics helper.
-# Importance: Provides high-precision duration trackers (latency calculation) and maps raw float probability arrays to class name dictionaries.
-
 import time
 import numpy as np
 from typing import Dict

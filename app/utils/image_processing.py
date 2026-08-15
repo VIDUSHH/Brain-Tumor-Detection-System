@@ -1,6 +1,3 @@
-# Information: Image pre-processing and post-processing utility.
-# Importance: Normalizes raw uploads for EfficientNet models and converts OpenCV overlay images back to JPEG formats for static access.
-
 import io
 import os
 import cv2
@@ -18,14 +15,9 @@ def load_image_from_bytes(file_bytes: bytes) -> Image.Image:
 
 def preprocess_image(image: Image.Image, target_size: int = settings.IMAGE_SIZE) -> np.ndarray:
     """Preprocesses a PIL Image for EfficientNet models."""
-    # Resize image
     image_resized = image.resize((target_size, target_size))
-    # Convert to array
     image_array = np.array(image_resized, dtype=np.float32)
-    # Expand dims to create batch dimension (1, H, W, C)
     image_batch = np.expand_dims(image_array, axis=0)
-    # Apply EfficientNet preprocessing (which is generally a pass-through since rescale is inside)
-    # but using keras preprocessing is best practice.
     preprocessed = tf.keras.applications.efficientnet.preprocess_input(image_batch)
     return preprocessed
 
