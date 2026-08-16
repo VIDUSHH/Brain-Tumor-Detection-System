@@ -1,0 +1,15 @@
+# Runtime-only dependencies for the Hugging Face Spaces Docker build.
+# Training/test-only packages (matplotlib, seaborn, scikit-learn, pytest, httpx)
+# are intentionally excluded to shrink the image and speed up the build.
+tensorflow==2.15.0
+keras==2.15.0
+numpy==1.26.4
+protobuf==4.25.9
+fastapi>=0.110.0
+uvicorn[standard]>=0.28.0
+gunicorn>=21.2.0
+python-multipart>=0.0.9
+pydantic-settings>=2.2.1
+pillow>=10.2.0
+opencv-python-headless>=4.9.0.80
+google-generativeai>=0.4.0

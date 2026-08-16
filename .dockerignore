@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
+.pytest_cache/
+.ipynb_checkpoints/
+*.egg-info/
+
+# Environments
+.venv
+venv/
+ENV/
+env/
+.env
+
+# Git
+.git/
+.gitignore
+
+# Local runtime data (keeps build context small)
+Brain Tumor data/
+uploads/*
+!uploads/.gitkeep
+results/*
+!results/.gitkeep
+logs/*
+!logs/.gitkeep
+artifacts/
+
+# IDE
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Deployment helpers (not needed inside the image)
+deploy/

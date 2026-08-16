@@ -1,0 +1,13 @@
+services:
+  app:
+    build: .
+    image: brain-tumor-detection:latest
+    ports:
+      - "8000:10000"
+    environment:
+      - MODEL_TYPE=efficientnet_b3
+      - TF_CPP_MIN_LOG_LEVEL=2
+    volumes:
+      - ./results:/workspace/results
+      - ./logs:/workspace/logs
+    restart: unless-stopped

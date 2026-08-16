@@ -21,8 +21,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
+# Copy application code and the trained model weights
 COPY app/ ./app/
+COPY models/best_model.h5 ./models/best_model.h5
 
 # Create necessary directories for local storage (ignored by git, needed at runtime)
 RUN mkdir -p uploads results logs models
@@ -31,4 +32,4 @@ RUN mkdir -p uploads results logs models
 EXPOSE 10000
 
 # Command to run FastAPI server under Uvicorn and Gunicorn for production scaling
-CMD gunicorn -w 4 -k uvicorn.workers.UvicornWorker app.main:app --bind 0.0.0.0:$PORT --timeout 120
+CMD ["gunicorn", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "app.main:app", "--bind", "0.0.0.0:10000", "--timeout", "120"]
