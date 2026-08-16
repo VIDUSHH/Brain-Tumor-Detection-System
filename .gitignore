@@ -38,6 +38,3 @@ env/
 .gemini/
 .DS_Store
 Thumbs.db
-
-# Personal interview-prep notes (keep local, do not push)
-questions.md
