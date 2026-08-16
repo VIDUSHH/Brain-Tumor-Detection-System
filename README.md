@@ -15,7 +15,7 @@ This system classifies scans into four distinct clinical categories (**Glioma**,
 - **Generative Patient Explanations**: Fully integrates Google Gemini (via `google-generativeai`) to convert complex clinical probabilities, pathology traits, and risks into empathetic patient-friendly summaries.
 - **Production-Grade API Backend**: FastAPI with strict payload size validation (10MB maximum), file-extension allow-list, image integrity verification, CORS enablement, and rotating file logs (`logs/app.log`, 5MB × 5 backups).
 - **Graceful Error Handling**: Returns clear **503** responses when the model isn't trained/loaded, **413** for oversized files, and **400** for invalid/corrupt uploads.
-- **One-Click Cloud Deployment**: Pre-configured with a multi-worker production Docker environment ready for deployment on **Render** (via `render.yaml`).
+- **One-Click Cloud Deployment**: Pre-configured Docker builds (`Dockerfile` + `docker-compose.yml`) with deployment blueprints for **Render** (`render.yaml`) and a **Hugging Face Spaces** build (`deploy/huggingface/`).
 
 ---
 
@@ -45,7 +45,10 @@ Brain-Tumor_Project/
 ├── uploads/                     # Uploaded files
 ├── results/                     # Generated images (served at /static/results)
 ├── logs/app.log                 # Rotating application log
-├── Dockerfile                   # Python 3.11-slim, Gunicorn + Uvicorn
+├── Dockerfile                   # Python 3.11-slim, Gunicorn + Uvicorn (bundles the model)
+├── docker-compose.yml           # One-command local container run (port 8000)
+├── .dockerignore                # Keeps the Docker build context lean
+├── deploy/huggingface/          # HF Spaces Docker build + automated deploy script
 ├── render.yaml                  # Render blueprint (Docker runtime)
 └── requirements.txt
 ```
@@ -143,6 +146,30 @@ uvicorn app.main:app --reload
 > Interactive Swagger/ReDoc docs are disabled in production (`docs_url=None`) to keep the public surface minimal.
 
 > **Important:** The prediction endpoint requires a trained model at `models/best_model.h5`. If the file is missing, the API still boots but `/predict` returns **503** with a clear message. Train the model first (see above).
+
+### Running with Docker
+
+The project ships a `Dockerfile`, `.dockerignore`, and `docker-compose.yml`. The image **bundles the trained model** (`models/best_model.h5`), so the container works out of the box.
+
+Build and run with Docker Compose (single command):
+```bash
+docker compose up --build
+```
+
+Or manually:
+```bash
+docker build -t brain-tumor-detection:latest .
+docker run -d --name btd-app -p 8000:10000 \
+  -v "$(pwd)/results:/workspace/results" \
+  -v "$(pwd)/logs:/workspace/logs" \
+  brain-tumor-detection:latest
+```
+
+- App: `http://127.0.0.1:8000/` | Health: `http://127.0.0.1:8000/health`
+- The `results/` and `logs/` folders are bind-mounted so generated images and logs persist on the host.
+- The image listens on port **10000** (host port mapped to **8000**). Requires Docker (Docker Desktop on Windows/macOS). First build takes a few minutes while TensorFlow installs.
+
+> **Note:** only the `results/` and `logs/` folders are mounted — uploaded images and generated heatmaps inside the container are ephemeral unless you also mount `uploads/`.
 
 ---
 
@@ -258,7 +285,9 @@ This project contains a `render.yaml` specification that allows you to easily sp
    - `TF_CPP_MIN_LOG_LEVEL`: `2` *(quiet TensorFlow logging)*
 7. Click **Apply** to build and launch your container.
 
-> **Note:** Since the trained model is not committed to the repository, upload `models/best_model.h5` to your deployed instance (or bind storage) after the first build.
+> **Note:** Since the trained model is not committed to the repository, upload `models/best_model.h5` to your deployed instance (or bind storage) after the first build. Alternatively, build from a checkout that contains the weights — the `Dockerfile` bundles `models/best_model.h5` into the image automatically.
+
+> **Note:** Render's **free** tier sleeps after ~15 minutes of inactivity and takes 1–2 minutes to cold-start. A paid instance type keeps the service always-on. If you need always-on hosting, consider Docker Compose on your own machine or a paid plan.
 
 ---
 

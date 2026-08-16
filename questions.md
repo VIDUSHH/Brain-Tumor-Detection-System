@@ -29,7 +29,8 @@ It is a production-grade Deep Learning + Explainable AI (XAI) system that classi
 - **FastAPI + Uvicorn** for the REST API.
 - **OpenCV + NumPy + Pillow** for image processing and localization drawing.
 - **pytest** for the automated test suite.
-- **Docker + Render** (`render.yaml`) for cloud deployment.
+- **Docker + Docker Compose** for containerized local runs.
+- **Deployment**: Render (`render.yaml`) and Hugging Face Spaces (`deploy/huggingface/`).
 
 **Q3. Why is Explainable AI important for medical imaging?**
 In medical diagnosis, a black-box prediction is not enough. Clinicians need to verify that the model focused on the actual lesion (e.g., mass effect, irregular margins) and not on imaging artifacts, markers, or patient anatomy noise. Grad-CAM produces a heatmap that shows which image regions drove the prediction, building trust and enabling human review.
@@ -215,13 +216,19 @@ pytest tests/ -v
 ## 8. Deployment
 
 **Q37. How is the app deployed?**
-Via Docker on Render using `render.yaml` (Blueprint). The web service runs `gunicorn -w 4 -k uvicorn.workers.UvicornWorker app.main:app`.
+Several options ship with the repo:
+- **Local Docker**: `docker compose up --build` — the `Dockerfile` bundles the trained model, so the container runs the full app out of the box (port 8000 → container 10000). `results/` and `logs/` are bind-mounted for persistence.
+- **Render**: `render.yaml` blueprint (Docker runtime), Gunicorn + Uvicorn. Note: Render's free tier sleeps after ~15 min of inactivity.
+- **Hugging Face Spaces**: `deploy/huggingface/` contains a Space-ready Dockerfile (port 7860), slim runtime-only `requirements.txt`, and `deploy.py` which creates the Space and pushes with git-lfs. Free-tier Docker Spaces now require a HF PRO subscription to create.
+
+**Q37b. Why are the model weights bundled into the Docker image?**
+Because `models/best_model.h5` is git-ignored, a bare clone can't serve predictions. The `Dockerfile` explicitly `COPY`s the weights into the image so the container works without external storage. For cloud platforms, the image must be built from a machine that has the weights (or they must be downloaded at build time).
 
 **Q38. What environment variables are used?**
 `MODEL_TYPE` (backbone), `GEMINI_API_KEY` (optional summaries), `IMAGE_SIZE` (224), `TF_CPP_MIN_LOG_LEVEL` (set `2` in production). Read via Pydantic `BaseSettings` from env or `.env`.
 
 **Q39. How is the trained model handled in deployment?**
-`models/best_model.h5` is git-ignored (too large). After the first build, the trained weights must be uploaded to the instance or attached storage, otherwise `/predict` returns 503 until it exists.
+`models/best_model.h5` is git-ignored (too large). The Docker image bundles it via `COPY` at build time, so any container built from this folder is self-sufficient. Platforms that build from the git repo alone (no weights) must have the model uploaded or attached after build, otherwise `/predict` returns 503 until it exists.
 
 ---
 
@@ -269,5 +276,5 @@ Built both, compared layer counts and structure: both produce **244 layers**; th
 - **Test command?** `pytest tests/ -v`.
 - **Main endpoint?** `POST /predict` (multipart, field `file`).
 - **Health endpoint?** `GET /health`.
-- **Deployment?** Docker + Render blueprint.
+- **Deployment?** Docker Compose locally; Render + HF Spaces blueprints for the cloud.
 - **Optional AI summaries?** Google Gemini via `GEMINI_API_KEY` or `X-Gemini-API-Key`.
